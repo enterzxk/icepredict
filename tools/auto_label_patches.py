@@ -21,9 +21,9 @@ CSV_ENCODINGS = ["utf-8-sig", "gbk", "gb18030"]
 EXTRA_FIELDS = ["vlm_label", "vlm_quality", "vlm_confidence", "vlm_reason", "vlm_raw_response"]
 
 PROMPT = """
-You are labeling cropped monitoring-image patches from power transmission equipment.
+You are screening cropped patches from images that were already marked as ice/snow/frost positive.
 
-Task: decide whether this patch visibly contains ice/snow/frost abnormality.
+Task: keep useful positive training patches and reject only patches that clearly do not show ice/snow/frost.
 
 Return ONLY valid JSON:
 {
@@ -33,13 +33,13 @@ Return ONLY valid JSON:
   "reason": "short Chinese reason"
 }
 
-Strict conservative rules:
-- Use patch_label=1 only when visible frozen material is present on power equipment, line, insulator, tower part, fitting, or nearby vegetation/equipment: frost texture, rime, ice coating, icicle, snow accumulation, or obvious frozen white crystalline deposit.
-- Thin/light frost is positive if it is visibly attached to equipment or line, even if not severe.
-- Use patch_label=0 when the patch is normal equipment/line/background, rain, fog, haze, lens water, glare, white sky, overexposure, metal reflection, paint, dust, or cloud without visible frozen deposit on an object.
-- Use patch_label=null and quality="uncertain" when the patch is too dark, too blurry, heavily occluded, mostly blank/background, no relevant object is visible, or frost cannot be distinguished from glare/fog/overexposure.
-- Do not infer ice/snow only from weather, gray tone, low temperature text, fog, or camera timestamp.
-- Prefer false negatives over false positives. If unsure, mark uncertain.
+Screening rules:
+- Use patch_label=1 when the patch can be useful for learning ice/snow/frost: visible frost texture, rime, ice coating, icicle, snow accumulation, frozen white crystalline deposit, or nearby vegetation/equipment covered by snow/frost.
+- Thin/light frost is positive if it is visible, even when it is subtle or low contrast.
+- Use patch_label=1 when there is a likely frozen deposit and the patch comes from a positive-source image, unless it is clearly just glare/fog/sky/background.
+- Use patch_label=0 only when the patch is clearly not useful as a positive sample: normal equipment, blank background, sky, pure vegetation without snow/frost, rain/fog/glare/lens water, or metal reflection without frozen deposit.
+- Use patch_label=null and quality="uncertain" only when the patch is too dark, too blurry, severely occluded, or impossible to judge.
+- Prefer keeping positive-source patches over discarding subtle frost patches.
 """.strip()
 
 
@@ -83,7 +83,7 @@ def encode_image_base64(image_path: str) -> Tuple[str, str]:
 def parse_json_response(text: str) -> Dict:
     cleaned = str(text or "").strip()
     if not cleaned:
-        return make_uncertain_result("模型未返回文本内容", text)
+        return make_uncertain_result("模型未返回文本内容", text, empty_response=True)
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`").strip()
         if cleaned.lower().startswith("json"):
@@ -123,14 +123,22 @@ def parse_json_response(text: str) -> Dict:
     }
 
 
-def make_uncertain_result(reason: str, raw_text: str = "") -> Dict:
+def make_uncertain_result(reason: str, raw_text: str = "", empty_response: bool = False) -> Dict:
     return {
         "patch_label": None,
         "quality": "uncertain",
         "confidence": 0.0,
         "reason": reason,
         "raw": str(raw_text or ""),
+        "empty_response": empty_response,
     }
+
+
+def should_keep_empty_response_as_positive(row: Dict[str, str], args) -> bool:
+    return (
+        getattr(args, "empty_response_policy", "uncertain") == "positive"
+        and str(row.get("source_binary_label", "")).strip() == "1"
+    )
 
 
 def extract_anthropic_text(response) -> str:
@@ -253,7 +261,17 @@ def row_matches_source_filter(row: Dict[str, str], source_binary_label: str) -> 
     return str(row.get("source_binary_label", "")).strip() == source_binary_label
 
 
-def apply_result_to_row(row: Dict[str, str], result: Dict) -> None:
+def apply_result_to_row(row: Dict[str, str], result: Dict, args=None) -> None:
+    if result.get("empty_response") and args is not None and should_keep_empty_response_as_positive(row, args):
+        row["patch_label"] = "1"
+        row["quality"] = "ok"
+        row["vlm_label"] = "1"
+        row["vlm_quality"] = "empty_response_positive_fallback"
+        row["vlm_confidence"] = f"{float(getattr(args, 'empty_positive_confidence', 0.35)):.4f}"
+        row["vlm_reason"] = "模型空回复；positive_source默认保留为正样本"
+        row["vlm_raw_response"] = result.get("raw", "")
+        return
+
     label = result["patch_label"]
     quality = result["quality"]
     confidence = result["confidence"]
@@ -328,7 +346,7 @@ def auto_label_patches(args) -> Dict:
                 "reason": "dry_run",
                 "raw": "{}",
             }
-            apply_result_to_row(row, result)
+            apply_result_to_row(row, result, args)
             processed += 1
             continue
 
@@ -337,7 +355,7 @@ def auto_label_patches(args) -> Dict:
             try:
                 assert labeler is not None
                 result = labeler.label(patch_path)
-                apply_result_to_row(row, result)
+                apply_result_to_row(row, result, args)
                 processed += 1
                 print(
                     f"  label={row.get('patch_label') or 'uncertain'} "
@@ -369,6 +387,10 @@ def auto_label_patches(args) -> Dict:
     labeled_pos = sum(1 for row in rows if str(row.get("patch_label", "")).strip() == "1")
     labeled_neg = sum(1 for row in rows if str(row.get("patch_label", "")).strip() == "0")
     uncertain = sum(1 for row in rows if str(row.get("quality", "")).strip().lower() == "uncertain")
+    empty_positive_fallback = sum(
+        1 for row in rows
+        if str(row.get("vlm_quality", "")).strip() == "empty_response_positive_fallback"
+    )
     summary = {
         "patch_csv": args.patch_csv,
         "output_csv": output_csv,
@@ -380,6 +402,7 @@ def auto_label_patches(args) -> Dict:
         "positive": labeled_pos,
         "negative": labeled_neg,
         "uncertain": uncertain,
+        "empty_positive_fallback": empty_positive_fallback,
         "config": vars(args),
     }
     summary_path = Path(output_csv).with_suffix(".summary.json")
@@ -404,6 +427,8 @@ def main(argv=None):
     parser.add_argument("--sleep", type=float, default=0.2)
     parser.add_argument("--save-every", type=int, default=10)
     parser.add_argument("--source-binary-label", default="", choices=["", "0", "1"], help="Only label rows with this source_binary_label")
+    parser.add_argument("--empty-response-policy", default="uncertain", choices=["uncertain", "positive"], help="How to handle empty model responses")
+    parser.add_argument("--empty-positive-confidence", type=float, default=0.35)
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
@@ -417,6 +442,7 @@ def main(argv=None):
     print(f"positive: {summary['positive']}")
     print(f"negative: {summary['negative']}")
     print(f"uncertain: {summary['uncertain']}")
+    print(f"empty_positive_fallback: {summary['empty_positive_fallback']}")
     print(f"output_csv: {summary['output_csv']}")
 
 
