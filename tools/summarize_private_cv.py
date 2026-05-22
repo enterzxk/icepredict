@@ -1,4 +1,4 @@
-"""Search low-FPR thresholds and summarize private CV predictions."""
+"""Search thresholds and summarize binary prediction CSV files."""
 
 from __future__ import annotations
 
@@ -103,6 +103,50 @@ def select_threshold(
     return best
 
 
+def select_threshold_by_precision(
+    targets: Sequence[int],
+    probabilities: Sequence[float],
+    target_precision: float = 0.95,
+    thresholds: Iterable[float] | None = None,
+) -> Dict:
+    threshold_values = list(thresholds or make_thresholds(0.01, 0.99, 0.01))
+    metrics = [
+        compute_binary_metrics(targets, probabilities, threshold)
+        for threshold in threshold_values
+    ]
+    valid = [
+        item for item in metrics
+        if item["precision"] >= target_precision and (item["tp"] + item["fp"]) > 0
+    ]
+
+    if valid:
+        best = max(
+            valid,
+            key=lambda item: (
+                item["recall"],
+                item["f0_5"],
+                -abs(item["precision"] - target_precision),
+                -item["threshold"],
+            ),
+        )
+        best = dict(best)
+        best["meets_precision_constraint"] = True
+    else:
+        best = min(
+            metrics,
+            key=lambda item: (
+                abs(item["precision"] - target_precision),
+                -item["recall"],
+                -item["f0_5"],
+                item["threshold"],
+            ),
+        )
+        best = dict(best)
+        best["meets_precision_constraint"] = False
+    best["target_precision"] = target_precision
+    return best
+
+
 def read_predictions(path: Path) -> Tuple[List[int], List[float], List[Dict[str, str]]]:
     rows: List[Dict[str, str]] = []
     with open(path, "r", encoding="utf-8-sig", newline="") as f:
@@ -134,6 +178,27 @@ def format_metric_line(name: str, metrics: Dict) -> str:
     )
 
 
+def choose_threshold(
+    targets: Sequence[int],
+    probabilities: Sequence[float],
+    args,
+    thresholds: Iterable[float],
+) -> Dict:
+    if args.selection_mode == "precision":
+        return select_threshold_by_precision(
+            targets,
+            probabilities,
+            args.target_precision,
+            thresholds,
+        )
+    return select_threshold(
+        targets,
+        probabilities,
+        args.max_fpr,
+        thresholds,
+    )
+
+
 def summarize_private_cv(args) -> Dict:
     pred_dir = Path(args.pred_dir)
     output_dir = Path(args.output_dir)
@@ -151,7 +216,7 @@ def summarize_private_cv(args) -> Dict:
     for path in prediction_files:
         targets, probabilities, _ = read_predictions(path)
         fold_name = path.parent.name if path.parent != pred_dir else "all"
-        best = select_threshold(targets, probabilities, args.max_fpr, thresholds)
+        best = choose_threshold(targets, probabilities, args, thresholds)
         best["fold"] = fold_name
         best["prediction_file"] = str(path)
         fold_summaries.append(best)
@@ -164,12 +229,14 @@ def summarize_private_cv(args) -> Dict:
         all_probabilities,
         recommended_threshold,
     )
-    overall_best = select_threshold(all_targets, all_probabilities, args.max_fpr, thresholds)
+    overall_best = choose_threshold(all_targets, all_probabilities, args, thresholds)
 
     summary = {
         "pred_dir": str(pred_dir),
         "output_dir": str(output_dir),
         "max_fpr": args.max_fpr,
+        "selection_mode": args.selection_mode,
+        "target_precision": args.target_precision,
         "threshold_search": {
             "start": args.threshold_start,
             "end": args.threshold_end,
@@ -188,7 +255,9 @@ def summarize_private_cv(args) -> Dict:
         "Private 5-fold CV summary",
         "=" * 60,
         f"prediction_files: {len(prediction_files)}",
+        f"selection_mode: {args.selection_mode}",
         f"max_fpr_constraint: {args.max_fpr:.4f}",
+        f"target_precision: {args.target_precision:.4f}",
         f"recommended_threshold_median: {recommended_threshold:.4f}",
         "",
         format_metric_line("overall@recommended", overall_at_recommended),
@@ -211,7 +280,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Summarize private CV predictions")
     parser.add_argument("--pred-dir", default="experiments/private_cv")
     parser.add_argument("--output-dir", default="experiments/private_cv")
+    parser.add_argument("--selection-mode", choices=["fpr", "precision"], default="fpr")
     parser.add_argument("--max-fpr", type=float, default=0.05)
+    parser.add_argument("--target-precision", type=float, default=0.95)
     parser.add_argument("--threshold-start", type=float, default=0.01)
     parser.add_argument("--threshold-end", type=float, default=0.99)
     parser.add_argument("--threshold-step", type=float, default=0.01)
