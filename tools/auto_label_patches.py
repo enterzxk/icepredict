@@ -116,6 +116,21 @@ def parse_json_response(text: str) -> Dict:
     }
 
 
+def extract_anthropic_text(response) -> str:
+    """Extract text from Anthropic-style responses that may include thinking blocks."""
+    texts = []
+    block_types = []
+    for block in getattr(response, "content", []) or []:
+        block_type = getattr(block, "type", type(block).__name__)
+        block_types.append(str(block_type))
+        text = getattr(block, "text", None)
+        if text:
+            texts.append(str(text))
+    if texts:
+        return "\n".join(texts).strip()
+    raise ValueError(f"Anthropic response has no text block, content block types={block_types}")
+
+
 class PatchVisionLabeler:
     def __init__(
         self,
@@ -166,7 +181,7 @@ class PatchVisionLabeler:
                     ],
                 }],
             )
-            text = response.content[0].text
+            text = extract_anthropic_text(response)
         else:
             data_url = f"data:{media_type};base64,{image_data}"
             response = self.client.chat.completions.create(
