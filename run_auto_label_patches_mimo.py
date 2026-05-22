@@ -12,7 +12,7 @@ def main():
     args = Namespace(
         patch_csv="data/patch_candidates/patch_candidates.csv",
         output_csv="data/patch_candidates/patch_candidates_mimo.csv",
-        api_format="anthropic",
+        api_format="openai",
         model=os.environ.get("MIMO_VISION_MODEL", config["model"]),
         base_url=config["base_url"],
         api_key_env=config["api_key_env"],

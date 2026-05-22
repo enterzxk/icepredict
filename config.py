@@ -10,7 +10,7 @@ from typing import Optional
 
 # 小米MiMo API配置
 MIMO_CONFIG = {
-    "base_url": "https://token-plan-cn.xiaomimimo.com/anthropic",  # 小米MiMo API地址
+    "base_url": "https://token-plan-cn.xiaomimimo.com/v1",  # 小米MiMo API地址
     "model": "mimo-v2.5",  # 图像标注使用 MiMo 2.5
     "api_key_env": "MIMO_API_KEY",  # 环境变量名
 }
