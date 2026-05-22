@@ -28,6 +28,7 @@ set_env.local.*
 data/
 data_shards/
 manual_labels.csv
+patch_candidates*.csv
 multi_label_results.json
 
 # Model checkpoints and training outputs
