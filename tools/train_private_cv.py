@@ -86,12 +86,19 @@ def make_search_roots(data_dir: Path) -> List[Path]:
         data_dir,
         data_dir / "data" / "imagine",
         data_dir / "data" / "roboflow_train",
+        data_dir / "data" / "patch_candidates",
         Path("data/imagine"),
         Path("data/roboflow_train"),
+        Path("data/patch_candidates"),
     ]
 
 
-def load_fold_groups(cv_dir: Path, fold: int, hard_negative_repeat: int = 5) -> Dict[str, List[Dict]]:
+def load_fold_groups(
+    cv_dir: Path,
+    fold: int,
+    hard_negative_repeat: int = 5,
+    extra_positive_label_file: str = "",
+) -> Dict[str, List[Dict]]:
     fold_dir = cv_dir / f"fold_{fold}"
     if not fold_dir.exists():
         raise FileNotFoundError(f"fold directory not found: {fold_dir}")
@@ -103,6 +110,13 @@ def load_fold_groups(cv_dir: Path, fold: int, hard_negative_repeat: int = 5) -> 
     hard_negative = load_items(fold_dir / "train_hard_negative_labels.json")
 
     private_pos = [item for item in private_train if int(bool(item.get("label_vector", [0])[0])) == 1]
+    extra_pos = []
+    if extra_positive_label_file:
+        extra_pos = [
+            item for item in load_items(Path(extra_positive_label_file))
+            if int(bool(item.get("label_vector", [0])[0])) == 1
+        ]
+    private_pos = private_pos + extra_pos
     private_neg = [item for item in private_train if int(bool(item.get("label_vector", [0])[0])) == 0]
     aux_neg = list(roboflow_neg) + list(hard_negative) * max(0, hard_negative_repeat)
 
@@ -113,6 +127,7 @@ def load_fold_groups(cv_dir: Path, fold: int, hard_negative_repeat: int = 5) -> 
         "aux_neg": aux_neg,
         "val": val_items,
         "hard_negative": hard_negative,
+        "extra_positive": extra_pos,
     }
 
 
@@ -416,7 +431,12 @@ def train_fold(args, fold: int) -> Dict:
     output_dir.mkdir(parents=True, exist_ok=True)
     weights_dir.mkdir(parents=True, exist_ok=True)
 
-    groups = load_fold_groups(cv_dir, fold, args.hard_negative_repeat)
+    groups = load_fold_groups(
+        cv_dir,
+        fold,
+        args.hard_negative_repeat,
+        args.extra_positive_label_file,
+    )
     raw_counts = {name: count_items(items) for name, items in groups.items()}
 
     filename_index = build_filename_index(make_search_roots(data_dir))
@@ -530,7 +550,12 @@ def dry_run(args) -> None:
     folds = parse_folds(args.folds, cv_dir)
     print("=== private CV train dry-run ===")
     for fold in folds:
-        groups = load_fold_groups(cv_dir, fold, args.hard_negative_repeat)
+        groups = load_fold_groups(
+            cv_dir,
+            fold,
+            args.hard_negative_repeat,
+            args.extra_positive_label_file,
+        )
         counts = {name: count_items(items) for name, items in groups.items()}
         lengths = {name: len(items) for name, items in groups.items()}
         batch_plan = make_batch_plan(args, {
@@ -570,6 +595,7 @@ def main(argv=None):
     parser.add_argument("--cv-dir", default="data/private_cv")
     parser.add_argument("--data-dir", default=".")
     parser.add_argument("--init-checkpoint", default="weights/ice_binary_classifier/best_stage2.pth")
+    parser.add_argument("--extra-positive-label-file", default="", help="Optional JSON of extra positive patches used only for training")
     parser.add_argument("--weights-dir", default="weights/ice_binary_private_cv")
     parser.add_argument("--output-dir", default="experiments/private_cv")
     parser.add_argument("--folds", default="all", help="'all' or comma-separated fold ids, e.g. 0,1")

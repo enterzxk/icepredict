@@ -247,6 +247,12 @@ def row_is_done(row: Dict[str, str]) -> bool:
     return bool(patch_label) or quality in {"uncertain", "不确定", "看不清", "模糊", "夜间"}
 
 
+def row_matches_source_filter(row: Dict[str, str], source_binary_label: str) -> bool:
+    if source_binary_label == "":
+        return True
+    return str(row.get("source_binary_label", "")).strip() == source_binary_label
+
+
 def apply_result_to_row(row: Dict[str, str], result: Dict) -> None:
     label = result["patch_label"]
     quality = result["quality"]
@@ -288,11 +294,15 @@ def auto_label_patches(args) -> Dict:
 
     processed = 0
     skipped = 0
+    skipped_by_filter = 0
     failed = 0
 
     for idx, row in enumerate(rows):
         if args.max_items > 0 and processed >= args.max_items:
             break
+        if not row_matches_source_filter(row, args.source_binary_label):
+            skipped_by_filter += 1
+            continue
         if not args.overwrite and row_is_done(row):
             skipped += 1
             continue
@@ -365,6 +375,7 @@ def auto_label_patches(args) -> Dict:
         "encoding": encoding,
         "processed": processed,
         "skipped": skipped,
+        "skipped_by_filter": skipped_by_filter,
         "failed": failed,
         "positive": labeled_pos,
         "negative": labeled_neg,
@@ -392,6 +403,7 @@ def main(argv=None):
     parser.add_argument("--retry-sleep", type=float, default=2.0)
     parser.add_argument("--sleep", type=float, default=0.2)
     parser.add_argument("--save-every", type=int, default=10)
+    parser.add_argument("--source-binary-label", default="", choices=["", "0", "1"], help="Only label rows with this source_binary_label")
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
@@ -400,6 +412,7 @@ def main(argv=None):
     print("\n=== Patch VLM auto-label finished ===")
     print(f"processed: {summary['processed']}")
     print(f"skipped: {summary['skipped']}")
+    print(f"skipped_by_filter: {summary['skipped_by_filter']}")
     print(f"failed: {summary['failed']}")
     print(f"positive: {summary['positive']}")
     print(f"negative: {summary['negative']}")

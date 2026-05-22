@@ -23,6 +23,7 @@ def main():
         retry_sleep=2.0,
         sleep=0.3,
         save_every=10,
+        source_binary_label="1",
         overwrite=False,
         dry_run=False,
     )
@@ -36,7 +37,8 @@ def main():
     print(f"API Key环境变量: {args.api_key_env}")
     print(f"输入CSV: {args.patch_csv}")
     print(f"输出CSV: {args.output_csv}")
-    print("策略: 保守标注；看不清/模糊/夜间/雨雾/反光 => uncertain")
+    print("处理范围: 只标注 positive_source/source_binary_label=1 的 patch")
+    print("策略: 保守筛选正样本；看不清/模糊/夜间/雨雾/反光 => uncertain")
     print("=" * 60)
 
     if not args.api_key:

@@ -93,6 +93,8 @@ def convert_patch_labels(args) -> Dict:
         except ValueError as exc:
             errors.append(f"line {line_no}: {exc}")
             continue
+        if args.positive_only and label != 1:
+            continue
         if args.require_exists and not Path(patch_path).exists():
             missing_files.append(patch_path)
             continue
@@ -102,7 +104,7 @@ def convert_patch_labels(args) -> Dict:
             "labels": {BINARY_LABEL: bool(label)},
             "label_vector": [label],
             "label_names": BINARY_LABEL_NAMES,
-            "source": "manual_patch_csv",
+            "source": "manual_patch_positive_csv" if args.positive_only else "manual_patch_csv",
             "source_image": row.get("source_image", ""),
             "crop_box": {
                 "x": int(float(row.get("x", 0) or 0)),
@@ -167,6 +169,7 @@ def main(argv=None):
     parser.add_argument("--output-dir", default="data/patch_dataset")
     parser.add_argument("--val-ratio", type=float, default=0.2)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--positive-only", action="store_true", help="Only export rows with patch_label=1")
     parser.add_argument("--require-exists", action="store_true")
     args = parser.parse_args(argv)
 
