@@ -82,14 +82,21 @@ def encode_image_base64(image_path: str) -> Tuple[str, str]:
 
 def parse_json_response(text: str) -> Dict:
     cleaned = str(text or "").strip()
+    if not cleaned:
+        return make_uncertain_result("模型未返回文本内容", text)
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`").strip()
         if cleaned.lower().startswith("json"):
             cleaned = cleaned[4:].strip()
     match = re.search(r"\{.*\}", cleaned, flags=re.S)
-    if match:
-        cleaned = match.group(0)
-    data = json.loads(cleaned)
+    if not match:
+        return make_uncertain_result("模型未返回JSON，已按不确定处理", text)
+
+    json_text = match.group(0)
+    try:
+        data = json.loads(json_text)
+    except json.JSONDecodeError:
+        return make_uncertain_result("模型返回的JSON无法解析，已按不确定处理", text)
 
     label = data.get("patch_label")
     if label is None or str(label).strip().lower() in {"null", "none", ""}:
@@ -116,6 +123,16 @@ def parse_json_response(text: str) -> Dict:
     }
 
 
+def make_uncertain_result(reason: str, raw_text: str = "") -> Dict:
+    return {
+        "patch_label": None,
+        "quality": "uncertain",
+        "confidence": 0.0,
+        "reason": reason,
+        "raw": str(raw_text or ""),
+    }
+
+
 def extract_anthropic_text(response) -> str:
     """Extract text from Anthropic-style responses that may include thinking blocks."""
     texts = []
@@ -128,7 +145,31 @@ def extract_anthropic_text(response) -> str:
             texts.append(str(text))
     if texts:
         return "\n".join(texts).strip()
-    raise ValueError(f"Anthropic response has no text block, content block types={block_types}")
+    return f"Anthropic response has no text block, content block types={block_types}"
+
+
+def extract_openai_text(message) -> str:
+    """Extract text from OpenAI-compatible message content variants."""
+    content = getattr(message, "content", "")
+    if isinstance(content, str):
+        return content.strip()
+
+    texts = []
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict):
+                text = part.get("text") or part.get("content")
+            else:
+                text = getattr(part, "text", None) or getattr(part, "content", None)
+            if text:
+                texts.append(str(text))
+    if texts:
+        return "\n".join(texts).strip()
+
+    refusal = getattr(message, "refusal", None)
+    if refusal:
+        return str(refusal).strip()
+    return ""
 
 
 class PatchVisionLabeler:
@@ -196,7 +237,7 @@ class PatchVisionLabeler:
                     ],
                 }],
             )
-            text = response.choices[0].message.content
+            text = extract_openai_text(response.choices[0].message)
         return parse_json_response(text)
 
 
