@@ -7,7 +7,7 @@ import csv
 import json
 import random
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple
 
 
 BINARY_LABEL = "\u51b0\u96ea\u5f02\u5e38"
@@ -35,9 +35,66 @@ def parse_patch_label(value: str) -> int:
     raise ValueError(f"patch_label must be 0/1, got {value!r}")
 
 
+def load_reject_ids(path: str) -> Tuple[Set[str], int]:
+    if not path:
+        return set(), 0
+    reject_ids: Set[str] = set()
+    duplicate_count = 0
+    last_error = None
+    for encoding in CSV_ENCODINGS:
+        try:
+            with open(path, "r", encoding=encoding) as f:
+                for line in f:
+                    text = line.strip()
+                    if not text or text.startswith("#"):
+                        continue
+                    text = Path(text).stem.strip()
+                    if text in reject_ids:
+                        duplicate_count += 1
+                    reject_ids.add(text)
+            return reject_ids, duplicate_count
+        except UnicodeDecodeError as exc:
+            last_error = exc
+    raise UnicodeDecodeError("reject_id_file", b"", 0, 1, f"cannot read {path}: {last_error}")
+
+
+def patch_id_candidates(row: Dict[str, str]) -> Set[str]:
+    values = {
+        str(row.get("patch_path", "")).strip(),
+        str(row.get("image_path", "")).strip(),
+    }
+    candidates: Set[str] = set()
+    for value in values:
+        if not value:
+            continue
+        path = Path(value)
+        candidates.add(path.name)
+        candidates.add(path.stem)
+    return {candidate for candidate in candidates if candidate}
+
+
+def is_rejected_patch(row: Dict[str, str], reject_ids: Set[str]) -> bool:
+    if not reject_ids:
+        return False
+    candidates = patch_id_candidates(row)
+    return any(candidate in reject_ids for candidate in candidates)
+
+
 def is_uncertain(row: Dict[str, str]) -> bool:
     text = str(row.get("quality", "")).strip().lower()
-    return text in {"uncertain", "bad", "blur", "dark", "\u4e0d\u786e\u5b9a", "\u770b\u4e0d\u6e05", "\u6a21\u7cca", "\u591c\u95f4"}
+    return text in {
+        "uncertain",
+        "bad",
+        "blur",
+        "dark",
+        "manual_reject",
+        "manual_rejected",
+        "\u4e0d\u786e\u5b9a",
+        "\u770b\u4e0d\u6e05",
+        "\u6a21\u7cca",
+        "\u591c\u95f4",
+        "\u4eba\u5de5\u5254\u9664",
+    }
 
 
 def split_train_val(items: List[Dict], val_ratio: float, seed: int) -> Tuple[List[Dict], List[Dict]]:
@@ -69,10 +126,12 @@ def convert_patch_labels(args) -> Dict:
         raise ValueError(f"patch csv is empty: {args.patch_csv}")
     if "patch_path" not in rows[0] or "patch_label" not in rows[0]:
         raise ValueError("patch csv must contain patch_path and patch_label columns")
+    reject_ids, duplicate_reject_ids = load_reject_ids(args.reject_id_file)
 
     items: List[Dict] = []
     skipped_unlabeled = 0
     skipped_uncertain = 0
+    skipped_manual_reject = 0
     missing_files = []
     errors = []
 
@@ -80,6 +139,9 @@ def convert_patch_labels(args) -> Dict:
         patch_path = str(row.get("patch_path", "")).strip()
         if not patch_path:
             errors.append(f"line {line_no}: patch_path is empty")
+            continue
+        if is_rejected_patch(row, reject_ids):
+            skipped_manual_reject += 1
             continue
         if is_uncertain(row):
             skipped_uncertain += 1
@@ -154,6 +216,10 @@ def convert_patch_labels(args) -> Dict:
         },
         "skipped_unlabeled": skipped_unlabeled,
         "skipped_uncertain": skipped_uncertain,
+        "skipped_manual_reject": skipped_manual_reject,
+        "reject_id_file": args.reject_id_file,
+        "reject_ids": len(reject_ids),
+        "duplicate_reject_ids": duplicate_reject_ids,
         "config": vars(args),
     }
     summary["train"]["negative"] = summary["train"]["count"] - summary["train"]["positive"]
@@ -170,6 +236,7 @@ def main(argv=None):
     parser.add_argument("--val-ratio", type=float, default=0.2)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--positive-only", action="store_true", help="Only export rows with patch_label=1")
+    parser.add_argument("--reject-id-file", default="", help="One manually rejected patch id or filename per line")
     parser.add_argument("--require-exists", action="store_true")
     args = parser.parse_args(argv)
 
@@ -182,6 +249,7 @@ def main(argv=None):
     print(f"val: {summary['val']}")
     print(f"skipped unlabeled: {summary['skipped_unlabeled']}")
     print(f"skipped uncertain: {summary['skipped_uncertain']}")
+    print(f"skipped manual reject: {summary['skipped_manual_reject']} / reject ids: {summary['reject_ids']}")
     print(f"output_dir: {summary['output_dir']}")
 
 
