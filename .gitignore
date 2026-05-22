@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+*.egg-info/
+
+# IDE / local agent state
+.idea/
+.vscode/
+.claude/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+set_env.local.*
+
+# Datasets, generated labels, and private annotations
+data/
+data_shards/
+manual_labels.csv
+multi_label_results.json
+
+# Model checkpoints and training outputs
+weights/
+runs/
+runs_*/
+*.pth
+*.pt
+*.ckpt
+*.onnx
+
+# Experiments: keep scripts, ignore generated outputs
+experiments/*
+!experiments/*.py
+!experiments/.gitkeep
+
+# Generated reports and media
+*.docx
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.webp
+*.gif
+*.mp4
+*.avi
+
+# OS files
+.DS_Store
+Thumbs.db

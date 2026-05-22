@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>覆冰智能监测与预警系统 — IceGuard AI</title>
+    <meta name="description" content="多源异构数据融合的输电线路覆冰智能监测与分级预警系统，基于Seq2ABTransformer时序预测与VLM零样本图像识别">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+    <defs>
+        <linearGradient id="gradBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#3b82f6"/>
+            <stop offset="100%" stop-color="#8b5cf6"/>
+        </linearGradient>
+        <linearGradient id="gradCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#06b6d4"/>
+            <stop offset="100%" stop-color="#3b82f6"/>
+        </linearGradient>
+    </defs>
+</svg>
+
+<nav class="navbar" id="navbar">
+    <div class="container">
+        <div class="nav-logo">
+            <div class="nav-logo-icon">❄️</div>
+            <span>IceGuard AI</span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#architecture">系统架构</a></li>
+            <li><a href="#dashboard">实时监测</a></li>
+            <li><a href="#performance">模型性能</a></li>
+            <li><a href="#recognition">图像识别</a></li>
+            <li><a href="#live-monitor">动态监控</a></li>
+            <li><a href="#alert-system">融合预警</a></li>
+            <li><a href="#innovation">创新亮点</a></li>
+        </ul>
+    </div>
+</nav>
+
+<section id="hero">
+    <canvas id="particles-canvas"></canvas>
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+
+    <div class="container hero-content">
+        <div class="hero-badge">
+            <span class="dot"></span>
+            2026年（第19届）中国大学生计算机设计大赛 · 大数据实践赛
+        </div>
+
+        <h1 class="hero-title">
+            多源异构数据融合的<br>
+            <span class="gradient-text">输电线路覆冰智能监测与预警系统</span>
+        </h1>
+
+        <p class="hero-subtitle">
+            融合 <strong>28.7万条</strong> 传感器时序数据与 <strong>6.44万条</strong> 监控图像，
+            基于 Transformer 时序预测和视觉大模型零样本识别，构建多模态交叉验证的分级预警系统
+        </p>
+
+        <div class="hero-stats">
+            <div class="stat-card">
+                <div class="stat-number"><span class="counter" data-target="287888">0</span></div>
+                <div class="stat-label">传感器数据量 (条)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number"><span class="counter" data-target="71.4" data-decimal="1">0</span><span class="stat-unit">%</span></div>
+                <div class="stat-label">预测准确率 Acc@0.2</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number"><span class="counter" data-target="48">0</span><span class="stat-unit">h</span></div>
+                <div class="stat-label">最大预测窗口</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number"><span class="counter" data-target="0.21" data-decimal="2">0</span><span class="stat-unit">M</span></div>
+                <div class="stat-label">轻量模型参数</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="scroll-indicator">
+        <div class="scroll-mouse"></div>
+        <span class="scroll-text">向下滚动</span>
+    </div>
+</section>
+
+<section id="architecture">
+    <div class="container">
+        <div class="reveal">
+            <div class="section-label">System Architecture</div>
+            <h2 class="section-title">三层架构 · 双模分析 · 交叉验证</h2>
+            <p class="section-desc">
+                系统采用"多源采集 → 双模分析 → 融合预警"的三层架构设计，
+                实现从数据感知到智能决策的完整链路
+            </p>
+        </div>
+
+        <div class="arch-flow reveal">
+            <div class="arch-node">
+                <div class="arch-node-icon">📡</div>
+                <div class="arch-node-title">数据采集层</div>
+                <div class="arch-node-desc">24个监测终端 · 温/湿/冰厚/比值<br>现场监控摄像头 · 6min采集间隔</div>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node">
+                <div class="arch-node-icon">🧠</div>
+                <div class="arch-node-title">智能分析层</div>
+                <div class="arch-node-desc">Seq2ABTransformer 时序预测<br>通义千问 VLM 图像识别</div>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node">
+                <div class="arch-node-icon">🚨</div>
+                <div class="arch-node-title">预警决策层</div>
+                <div class="arch-node-desc">4级分级预警规则引擎<br>双模态交叉验证 · 运维建议</div>
+            </div>
+        </div>
+
+        <div class="arch-detail-grid">
+            <div class="glass-card arch-detail-card reveal reveal-delay-1">
+                <div class="card-header">
+                    <div class="card-icon-sm blue">⚡</div>
+                    <h4>时序预测模块</h4>
+                </div>
+                <p style="font-size:0.88rem;color:var(--text-secondary)">
+                    基于自注意力机制的 Seq2ABTransformer 模型，融合历史覆冰序列与未来气象条件，
+                    实现覆冰厚度与覆冰比值的联合定量预测，最远可预测未来48小时
+                </p>
+                <div class="tech-tags">
+                    <span class="tech-tag">Transformer</span>
+                    <span class="tech-tag">xFormers</span>
+                    <span class="tech-tag">CLS Token</span>
+                    <span class="tech-tag">MSE Loss</span>
+                </div>
+            </div>
+
+            <div class="glass-card arch-detail-card reveal reveal-delay-2">
+                <div class="card-header">
+                    <div class="card-icon-sm purple">👁️</div>
+                    <h4>图像识别模块</h4>
+                </div>
+                <p style="font-size:0.88rem;color:var(--text-secondary)">
+                    调用通义千问视觉大模型（Qwen VL），通过精心设计的 Prompt 工程实现零样本覆冰识别，
+                    无需标注训练数据即可快速判别覆冰状态
+                </p>
+                <div class="tech-tags">
+                    <span class="tech-tag">VLM</span>
+                    <span class="tech-tag">Zero-Shot</span>
+                    <span class="tech-tag">Prompt Eng.</span>
+                    <span class="tech-tag">JSON Output</span>
+                </div>
+            </div>
+
+            <div class="glass-card arch-detail-card reveal reveal-delay-3">
+                <div class="card-header">
+                    <div class="card-icon-sm orange">🔗</div>
+                    <h4>融合预警模块</h4>
+                </div>
+                <p style="font-size:0.88rem;color:var(--text-secondary)">
+                    将定量时序预测与定性图像识别进行交叉验证，通过规则引擎生成0-3级分级预警，
+                    辅助运维人员精准决策、高效巡检
+                </p>
+                <div class="tech-tags">
+                    <span class="tech-tag">规则引擎</span>
+                    <span class="tech-tag">交叉验证</span>
+                    <span class="tech-tag">4级预警</span>
+                    <span class="tech-tag">运维建议</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="dashboard">
+    <div class="container">
+        <div class="reveal">
+            <div class="section-label">Real-time Monitoring</div>
+            <h2 class="section-title">覆冰态势实时感知</h2>
+            <p class="section-desc">
+                基于24个监测终端全年287,888条传感器数据，展示典型终端的覆冰厚度时序趋势与关键指标监控
+            </p>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="glass-card chart-card reveal">
+                <h3>覆冰厚度时序趋势</h3>
+                <div class="chart-subtitle">典型终端 · 2024全年数据 — 覆冰事件集中于冬季（1-2月）</div>
+                <div class="chart-wrapper">
+                    <canvas id="timeseriesChart"></canvas>
+                </div>
+            </div>
+
+            <div class="gauge-cluster">
+                <div class="glass-card gauge-card reveal reveal-delay-1">
+                    <div class="gauge-wrapper">
+                        <svg viewBox="0 0 140 140">
+                            <circle class="gauge-bg" cx="70" cy="70" r="58" />
+                            <circle class="gauge-fill blue" cx="70" cy="70" r="58"
+                                    stroke-dasharray="364.4" stroke-dashoffset="364.4"
+                                    data-target="260" transform="rotate(-90 70 70)" />
+                        </svg>
+                        <div class="gauge-value" style="color:#8b5cf6">71.4<span style="font-size:0.8rem">%</span></div>
+                    </div>
+                    <div class="gauge-label">预测准确率 Acc@0.2</div>
+                </div>
+
+                <div class="glass-card gauge-card reveal reveal-delay-2">
+                    <div class="gauge-wrapper">
+                        <svg viewBox="0 0 140 140">
+                            <circle class="gauge-bg" cx="70" cy="70" r="58" />
+                            <circle class="gauge-fill cyan" cx="70" cy="70" r="58"
+                                    stroke-dasharray="364.4" stroke-dashoffset="364.4"
+                                    data-target="286" transform="rotate(-90 70 70)" />
+                        </svg>
+                        <div class="gauge-value" style="color:#06b6d4">78.6<span style="font-size:0.8rem">%</span></div>
+                    </div>
+                    <div class="gauge-label">24-48h 窗口准确率</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid" style="margin-top:24px; display: block;">
+            <div class="glass-card chart-card reveal">
+                <h3>未来覆冰厚度动态预测 (基于真实数据推演)</h3>
+                <div class="chart-subtitle">加载预测数据模型，展示未来窗口的覆冰趋势</div>
+                <div class="chart-wrapper" style="height: 350px;">
+                    <canvas id="predictionChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid" style="margin-top:24px">
+            <div class="glass-card chart-card reveal">
+                <h3>气象特征相关性分析</h3>
+                <div class="chart-subtitle">覆冰厚度与温度呈负相关（r = -0.205），与覆冰比值高度正相关（r = 0.970）</div>
+                <div class="chart-wrapper">
+                    <canvas id="correlationChart"></canvas>
+                </div>
+            </div>
+            <div class="glass-card chart-card reveal reveal-delay-1">
+                <h3>覆冰样本分布</h3>
+                <div class="chart-subtitle">有覆冰样本仅占23.1%，存在显著类别不均衡</div>
+                <div class="chart-wrapper">
+                    <canvas id="distributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="performance">
+    <div class="container">
+        <div class="reveal">
+            <div class="section-label">Model Performance</div>
+            <h2 class="section-title">Seq2ABTransformer 预测性能</h2>
+            <p class="section-desc">
+                轻量级模型（仅210K参数）实现了高精度的覆冰厚度联合预测，
+                尤其在中长期预测窗口（12-48h）表现优异
+            </p>
+        </div>
+
+        <div class="metrics-row reveal">
+            <div class="metric-item">
+                <div class="metric-value highlight"><span class="counter" data-target="71.4" data-decimal="1">0</span>%</div>
+                <div class="metric-label">Acc@0.2</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" style="color: var(--accent-cyan)">0.128<span style="font-size:0.9rem">mm</span></div>
+                <div class="metric-label">误差中位数</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" style="color: var(--accent-green)">0.127</div>
+                <div class="metric-label">覆冰比值 MAE</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-value" style="color: var(--accent-purple)">210K</div>
+                <div class="metric-label">模型参数量</div>
+            </div>
+        </div>
+
+        <div class="perf-grid">
+            <div class="glass-card perf-card reveal">
+                <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:4px">不同预测窗口精度对比</h3>
+                <div class="chart-subtitle" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:20px">
+                    12-48h 窗口 Acc@0.2 均超过77%，适合提前预警
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="windowChart"></canvas>
+                </div>
+            </div>
+            <div class="glass-card perf-card reveal reveal-delay-1">
+                <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:4px">预测误差分布</h3>
+                <div class="chart-subtitle" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:20px">
+                    超过71%的样本预测误差低于0.2mm
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="errorChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="recognition">
+    <div class="container">
+        <div class="reveal">
+            <div class="section-label">VLM Image Recognition</div>
+            <h2 class="section-title">零样本覆冰图像智能识别</h2>
+            <p class="section-desc">
+                基于通义千问视觉大模型（Qwen VL），通过 Prompt 工程实现零样本推理，
+                无需任何标注训练数据即可对覆冰状态进行自动识别
+            </p>
+        </div>
+
+        <div class="recognition-grid">
+            <div class="glass-card recognition-card reveal reveal-delay-1" id="img-card-1">
+                <div class="img-wrapper">
+                    <img src="./assets/imagine/CrRRgmdab7CANeNvAACOATRQC7Q177.jpg" alt="严重覆冰图像" loading="lazy">
+                    <div class="img-overlay">
+                        <span class="img-badge yes">⚠ 覆冰检出 · YES</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h4>严重覆冰 — 导线大面积结冰</h4>
+                    <p>VLM识别结果：导线覆冰明显，冰层厚度较大</p>
+                </div>
+            </div>
+
+            <div class="glass-card recognition-card reveal reveal-delay-2" id="img-card-2">
+                <div class="img-wrapper">
+                    <img src="./assets/imagine/CrRRgmdaYDKAImRpAAMJy1cvWOU220.jpg" alt="轻度/中度覆冰图像" loading="lazy">
+                    <div class="img-overlay">
+                        <span class="img-badge yes">⚠ 覆冰检出 · YES</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h4>中度覆冰 — 局部冰层附着</h4>
+                    <p>VLM识别结果：存在积雪覆冰，需关注发展趋势</p>
+                </div>
+            </div>
+
+            <div class="glass-card recognition-card reveal reveal-delay-3" id="img-card-3">
+                <div class="img-wrapper">
+                    <img src="./assets/imagine/CrRRgmdVU9eAGZlDAARVu4m1dW4698.jpg" alt="正常图像" loading="lazy">
+                    <div class="img-overlay">
+                        <span class="img-badge no">✓ 状态正常 · NO</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h4>无覆冰 — 线路状态正常</h4>
+                    <p>VLM识别结果：未检测到积雪或覆冰现象</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="vlm-pipeline reveal">
+            <div class="pipeline-step">
+                <div class="step-icon" style="background:rgba(59,130,246,0.15)">📷</div>
+                图像输入
+            </div>
+            <span class="pipeline-arrow">→</span>
+            <div class="pipeline-step">
+                <div class="step-icon" style="background:rgba(139,92,246,0.15)">📝</div>
+                Prompt 约束
+            </div>
+            <span class="pipeline-arrow">→</span>
+            <div class="pipeline-step">
+                <div class="step-icon" style="background:rgba(6,182,212,0.15)">🧠</div>
+                Qwen VLM 推理
+            </div>
+            <span class="pipeline-arrow">→</span>
+            <div class="pipeline-step">
+                <div class="step-icon" style="background:rgba(16,185,129,0.15)">📊</div>
+                JSON 结构化输出
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="live-monitor">
+    <div class="container">
+        <div class="reveal">
+            <div class="section-label">Live Image Monitor</div>
+            <h2 class="section-title">实时动态图像监控与预警</h2>
+            <p class="section-desc">
+                动态提取前端监控图像，实时进行状态判别并进行分级声光预警。
+            </p>
+        </div>
+
+        <div class="monitor-container reveal" style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-top: 24px;">
+            <div class="glass-card monitor-main" style="padding: 16px;">
+                <div class="img-wrapper" style="position: relative; border-radius: 12px; overflow: hidden; height: 400px;">
+                    <img id="live-monitor-img" src="" alt="实时监控图像" style="width: 100%; height: 100%; object-fit: cover; transition: all 0.3s ease;">
+                    <div id="live-monitor-overlay" class="img-overlay" style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 40%); display: flex; align-items: flex-end; padding: 20px;">
+                        <span id="live-monitor-badge" class="img-badge no" style="font-size: 1rem; padding: 8px 16px;">加载中...</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="glass-card monitor-status" style="display: flex; flex-direction: column; justify-content: center;">
+                <h3 style="margin-bottom: 20px; font-size: 1.2rem; color: var(--text-primary);">当前状态分析</h3>
+                
+                <div id="monitor-alert-box" style="padding: 24px; border-radius: 12px; background: rgba(16, 185, 129, 0.1); border: 2px solid rgba(16, 185, 129, 0.3); text-align: center; margin-bottom: 24px; transition: all 0.3s ease;">
+                    <div id="alert-icon" style="font-size: 3rem; margin-bottom: 12px;">✅</div>
+                    <div id="alert-text" style="font-size: 1.2rem; font-weight: 700; color: #01b574;">线路状态正常</div>
+                </div>
+                
+                <div class="status-details" style="font-size: 0.95rem; color: var(--text-secondary); line-height: 2;">
+                    <p><strong>最后更新：</strong> <span id="monitor-time" style="font-family: var(--font-mono); color: var(--text-primary);">--:--:--</span></p>
+                    <p><strong>图像来源：</strong> 输电线前端摄像头</p>
+                    <p><strong>AI 判定：</strong> <span id="monitor-result" style="font-weight: 600;">初始化中...</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="alert-system">
+    <div class="container">
+        <div class="reveal">
+            <div class="section-label">Fusion Alert</div>
+            <h2 class="section-title">多模态融合分级预警</h2>
+            <p class="section-desc">
+                将时序预测与图像识别进行交叉验证，通过规则引擎生成四级预警，
+                确保预警结果的可靠性与可操作性
+            </p>
+        </div>
+
+        <div class="alert-demo-grid">
+            <div class="alert-level-card level-0 glass-card reveal reveal-delay-1" data-level="0">
+                <div class="alert-level-icon">✅</div>
+                <div class="alert-level-name">Level 0 · 正常</div>
+                <div class="alert-level-condition">预测厚度 < 0.5mm<br>且 VLM = NO</div>
+            </div>
+            <div class="alert-level-card level-1 glass-card reveal reveal-delay-2" data-level="1">
+                <div class="alert-level-icon">⚡</div>
+                <div class="alert-level-name">Level 1 · 注意</div>
+                <div class="alert-level-condition">预测厚度 0.5 ~ 2mm<br>或双模态存在分歧</div>
+            </div>
+            <div class="alert-level-card level-2 glass-card reveal reveal-delay-3" data-level="2">
+                <div class="alert-level-icon">⚠️</div>
+                <div class="alert-level-name">Level 2 · 预警</div>
+                <div class="alert-level-condition">预测厚度 > 2mm<br>或 VLM = YES</div>
+            </div>
+            <div class="alert-level-card level-3 glass-card reveal reveal-delay-4" data-level="3">
+                <div class="alert-level-icon">🚨</div>
+                <div class="alert-level-name">Level 3 · 紧急</div>
+                <div class="alert-level-condition">预测厚度 > 5mm<br>且 VLM = YES 双重确认</div>
+            </div>
+        </div>
+
+        <div class="alert-sim-panel reveal">
+            <div class="alert-sim-header">
+                <h3>🔬 融合预警实时模拟</h3>
+                <button class="sim-btn" id="runSimBtn" onclick="runAlertSimulation()">▶ 运行模拟</button>
+            </div>
+            <div class="sim-output" id="simOutput">
+                <span style="color:var(--text-muted)">// 点击"运行模拟"按钮，观看融合预警全流程演示...</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="innovation">
+    <div class="container">
+        <div class="reveal">
+            <div class="section-label">Innovation Highlights</div>
+            <h2 class="section-title">作品特色与创新亮点</h2>
+        </div>
+
+        <div class="innovation-grid">
+            <div class="glass-card innovation-card reveal reveal-delay-1">
+                <div class="innovation-number">01</div>
+                <div>
+                    <h4>多源异构数据协同感知</h4>
+                    <p>首次将传感器时序数据与监控图像置于统一业务目标下进行协同分析，
+                        实现"定量预测 + 定性识别"双维度覆冰风险判断</p>
+                </div>
+            </div>
+            <div class="glass-card innovation-card reveal reveal-delay-2">
+                <div class="innovation-number">02</div>
+                <div>
+                    <h4>轻量级 Transformer 架构</h4>
+                    <p>自主设计 Seq2ABTransformer 模型，仅 0.21M 参数即实现 48h 覆冰厚度预测，
+                        适合边缘设备部署，模型精巧高效</p>
+                </div>
+            </div>
+            <div class="glass-card innovation-card reveal reveal-delay-3">
+                <div class="innovation-number">03</div>
+                <div>
+                    <h4>VLM 零样本视觉识别</h4>
+                    <p>利用视觉大模型实现零样本覆冰识别，通过 Prompt 工程约束输出，
+                        无需标注数据即可快速构建图像分析能力</p>
+                </div>
+            </div>
+            <div class="glass-card innovation-card reveal reveal-delay-4">
+                <div class="innovation-number">04</div>
+                <div>
+                    <h4>双模态交叉验证预警</h4>
+                    <p>创新性地将时序预测与图像识别结果进行交叉验证，
+                        有效降低单一模态误报率，提升预警结果的可信度与可落地性</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer class="footer">
+    <div class="container">
+        <div class="footer-logo">❄️ IceGuard AI</div>
+        <div class="footer-tagline">多源异构数据融合的输电线路覆冰智能监测与预警系统</div>
+        <div class="footer-info">
+            2026年（第19届）中国大学生计算机设计大赛 · 大数据实践赛
+        </div>
+    </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
